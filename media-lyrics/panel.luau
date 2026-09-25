@@ -2,7 +2,7 @@
 -- media-lyrics panel: cover art with progress line, track info + transport,
 -- karaoke lyric layer. Redesign v0.2 ("quiet premium"): one hero (the cover),
 -- minimal chrome, type-driven hierarchy. Layout (2 bands):
---   A. chrome header:  NOW PLAYING ......... [reload] [close]   (11px ghost)
+--   A. chrome header:  NOW PLAYING ......... [reload] [settings] [close]   (11px ghost)
 --   B. info row:       [cover 50 + progress 2.5] [title / artist - album] | transport+time
 --   hairline separator
 --   C. lyrics: karaoke carousel (synced) or clipped list (plain), flexGrow
@@ -224,10 +224,17 @@ local function wrapLyric(text, fontSize, fontWeight, reserved)
   return table.concat(out, "\n")
 end
 
+local llm_backend = require("./llm_backend.luau")
+
 local function buildLyricsBody(s)
   local lines = s.lyrics or {}
   local n = #lines
 
+  if n == 0 and (s.llmStatus == "pending" or s.llmStatus == "not_song") then
+    local key = s.llmStatus == "pending" and "panel.waiting-for-ai" or "panel.ai-not-song"
+    return { ui.label({ text = wrapLyric(noctalia.tr(key), T.fsFarLyric, "medium"), color = T.colMeta,
+      fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
+  end
   if s.lyricsStatus == "loading" then
     return { ui.label({ text = noctalia.tr("panel.loading-lyrics"), color = T.colMeta,
       fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
@@ -291,7 +298,7 @@ local function buildLyricsBody(s)
     end
     return rows
   end
-  if s.lyricsStatus == "error" then
+  if s.lyricsStatus == "error" and not s.llmError then
     return { ui.label({ text = noctalia.tr("panel.lyrics-error") .. (s.lyricsError or ""),
       color = "error", fontSize = T.fsFarLyric, textAlign = "center" }) }
   end
@@ -445,7 +452,8 @@ local function buildLyricsBody(s)
   return rows
   end
   -- No lyrics after the whole chain (and the picker shows nothing else):
-  return { ui.label({ text = noctalia.tr("panel.no-lyrics"), color = T.emptyState,
+  local message = llm_backend.noLyricsMessage(noctalia.tr("panel.no-lyrics"), s.llmError)
+  return { ui.label({ text = wrapLyric(message, T.fsFarLyric, "medium"), color = T.emptyState,
     fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
 end
 
@@ -722,7 +730,7 @@ local function render()
   end
 
   panel.render(ui.column({ flexGrow = 1, padding = T.pad, gap = T.gapBand }, {
-    -- A. chrome header: overline left, two ghost glyph buttons right
+    -- A. chrome header: overline left, compact controls right
     ui.row({ key = "chrome", align = "center", justify = "space_between" }, {
       ui.label({ text = noctalia.tr("panel.now-playing"), fontSize = T.fsOverline, fontWeight = "semibold",
         color = T.colOverline }),
@@ -747,6 +755,10 @@ local function render()
           width = 22, height = 22,
           tooltip = noctalia.tr("panel.reload-lyrics"),
           onClick = function() noctalia.state.set("panel_req", { action = "reloadLyrics" }) end }),
+        ui.button({ glyph = "settings", glyphSize = 14, variant = "ghost", controlSize = "sm",
+          width = 22, height = 22,
+          tooltip = noctalia.tr("panel.settings"),
+          onClick = function() noctalia.openSettings() end }),
         ui.button({ glyph = "close", glyphSize = 14, variant = "ghost", controlSize = "sm",
           width = 22, height = 22,
           onClick = function() panel.close() end }),

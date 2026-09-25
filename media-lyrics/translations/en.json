@@ -6,12 +6,15 @@
   "panel": {
     "choose-lyrics": "Lyrics variants",
     "loading-lyrics": "Loading lyrics…",
+    "waiting-for-ai": "Waiting for AI...",
+    "ai-not-song": "Classified as not a song by AI",
     "lyrics-error": "Lyrics error: ",
     "no-lyrics": "No lyrics found",
     "no-media-player": "No media player",
     "no-variants": "No alternative lyrics found",
     "now-playing": "NOW PLAYING",
     "reload-lyrics": "Reload lyrics",
+    "settings": "Plugin settings",
     "synced": "synced",
     "unsynced": "unsynced",
     "variant-default": "Default"
@@ -25,6 +28,114 @@
     "lyrics-unreachable": "LRCLIB unreachable (network error)"
   },
   "settings": {
+    "youtube_fallback": {
+      "label": "YouTube fallback",
+      "description": "Use yt-dlp chapters for YouTube videos when available."
+    },
+    "yt_dlp_path": {
+      "label": "yt-dlp binary path",
+      "description": "Leave empty to find yt-dlp in PATH, or enter an absolute executable path."
+    },
+    "llm_backend": {
+      "label": "LLM backend",
+      "description": "Use only this backend for track identification. Select Disabled to turn identification off.",
+      "options": {
+        "none": "Disabled",
+        "ollama": "Ollama",
+        "openai": "OpenAI",
+        "anthropic": "Anthropic",
+        "gemini": "Gemini",
+        "xai": "xAI",
+        "groq": "Groq",
+        "deepseek": "DeepSeek",
+        "mistral": "Mistral",
+        "openrouter": "OpenRouter"
+      }
+    },
+    "ollama_api_key": {
+      "label": "Ollama API key",
+      "description": "Optional for a local server without authentication. Enter a key if your server requires one."
+    },
+    "ollama_model": {
+      "label": "Ollama model",
+      "description": "Name of an installed Ollama model."
+    },
+    "ollama_endpoint": {
+      "label": "Ollama endpoint",
+      "description": "API base URL including /v1, or a full /chat/completions URL. Supports Ollama and other OpenAI-compatible servers."
+    },
+    "openai_api_key": {
+      "label": "OpenAI API key",
+      "description": "Used only when this backend is selected. Settings are stored as plain text."
+    },
+    "openai_model": {
+      "label": "OpenAI model",
+      "description": "Model for track identification. Default: gpt-5-mini."
+    },
+    "openai_endpoint": {
+      "label": "OpenAI endpoint",
+      "description": "API base URL including /v1, or a full /chat/completions URL. Supports Ollama and other OpenAI-compatible servers."
+    },
+    "anthropic_api_key": {
+      "label": "Anthropic API key",
+      "description": "Used only when this backend is selected. Settings are stored as plain text."
+    },
+    "anthropic_model": {
+      "label": "Anthropic model",
+      "description": "Model for track identification. Default: claude-haiku-4-5."
+    },
+    "gemini_api_key": {
+      "label": "Gemini API key",
+      "description": "Used only when this backend is selected. Settings are stored as plain text."
+    },
+    "gemini_model": {
+      "label": "Gemini model",
+      "description": "Model for track identification. Default: gemini-2.5-flash."
+    },
+    "xai_api_key": {
+      "label": "xAI API key",
+      "description": "Used only when this backend is selected. Settings are stored as plain text."
+    },
+    "xai_model": {
+      "label": "xAI model",
+      "description": "Model for track identification. Default: grok-4-1-fast-non-reasoning."
+    },
+    "groq_api_key": {
+      "label": "Groq API key",
+      "description": "Used only when this backend is selected. Settings are stored as plain text."
+    },
+    "groq_model": {
+      "label": "Groq model",
+      "description": "Model for track identification. Default: llama-3.3-70b-versatile."
+    },
+    "deepseek_api_key": {
+      "label": "DeepSeek API key",
+      "description": "Used only when this backend is selected. Settings are stored as plain text."
+    },
+    "deepseek_model": {
+      "label": "DeepSeek model",
+      "description": "Model for track identification. Default: deepseek-flash."
+    },
+    "mistral_api_key": {
+      "label": "Mistral API key",
+      "description": "Used only when this backend is selected. Settings are stored as plain text."
+    },
+    "mistral_model": {
+      "label": "Mistral model",
+      "description": "Model for track identification. Default: mistral-small-latest."
+    },
+    "llm_max_tokens": {
+      "label": "LLM output token limit",
+      "description": "Enter a positive whole number. Maximum output tokens per request, including reasoning where applicable. Default: 32768. Must be supported by the selected model."
+    },
+    "openrouter_api_key": {
+      "label": "OpenRouter API key",
+      "description": "Used only when this backend is selected. Settings are stored as plain text."
+    },
+    "openrouter_model": {
+      "label": "OpenRouter model",
+      "description": "Model for track identification with web search. Default: ~google/gemini-flash-latest."
+    },
     "album_art_only": {
       "description": "Show only the album artwork (no text).",
       "label": "Album art only"

@@ -1,23 +1,223 @@
 # media-lyrics — Noctalia v5 plugin: media player panel with synced lyrics.
 #
-# Pure-Luau media panel: polls Noctalia's own D-Bus MPRIS aggregator
+# Luau media panel: polls Noctalia's own D-Bus MPRIS aggregator
 # (dev.noctalia.Mpris) from a [[service]], fetches synced lyrics from
 # LRCLIB (exact /api/get first, then /api/search fallback), parses LRC in
 # pure Luau, caches locally, and exposes everything to the [[panel]] over
-# noctalia.state. Runtime needs busctl (MPRIS poll) and curl (LRCLIB HTTPS).
+# noctalia.state. YouTube metadata extraction uses an optional Python helper.
 #
 # Open the panel:  noctalia msg panel-toggle tranzem/media-lyrics:panel
 
 id = "tranzem/media-lyrics"
 name = "Media Lyrics"
-version = "0.9.4"
+version = "0.9.5"
 plugin_api = 30
 author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service"]
 icon = "music"
-description = "Synced lyrics media panel: karaoke carousel, progress bar, marquee titles. Pure Luau; runtime needs busctl + curl."
+description = "Synced lyrics media panel with optional YouTube chapters and track identification. Runtime needs busctl + curl."
 dependencies = ["busctl", "curl"]
+
+[[setting]]
+key = "youtube_fallback"
+type = "bool"
+label_key = "settings.youtube_fallback.label"
+description_key = "settings.youtube_fallback.description"
+default = true
+
+[[setting]]
+key = "yt_dlp_path"
+type = "string"
+label_key = "settings.yt_dlp_path.label"
+description_key = "settings.yt_dlp_path.description"
+default = ""
+
+[[setting]]
+key = "llm_backend"
+type = "select"
+label_key = "settings.llm_backend.label"
+description_key = "settings.llm_backend.description"
+default = "openrouter"
+options = [
+  { value = "none", label_key = "settings.llm_backend.options.none" },
+  { value = "ollama", label_key = "settings.llm_backend.options.ollama" },
+  { value = "openai", label_key = "settings.llm_backend.options.openai" },
+  { value = "anthropic", label_key = "settings.llm_backend.options.anthropic" },
+  { value = "gemini", label_key = "settings.llm_backend.options.gemini" },
+  { value = "xai", label_key = "settings.llm_backend.options.xai" },
+  { value = "groq", label_key = "settings.llm_backend.options.groq" },
+  { value = "deepseek", label_key = "settings.llm_backend.options.deepseek" },
+  { value = "mistral", label_key = "settings.llm_backend.options.mistral" },
+  { value = "openrouter", label_key = "settings.llm_backend.options.openrouter" },
+]
+
+[[setting]]
+key = "ollama_api_key"
+type = "string"
+label_key = "settings.ollama_api_key.label"
+description_key = "settings.ollama_api_key.description"
+visible_when = { key = "llm_backend", values = ["ollama"] }
+default = ""
+
+[[setting]]
+key = "ollama_endpoint"
+type = "string"
+label_key = "settings.ollama_endpoint.label"
+description_key = "settings.ollama_endpoint.description"
+visible_when = { key = "llm_backend", values = ["ollama"] }
+default = "http://localhost:11434/v1"
+
+[[setting]]
+key = "ollama_model"
+type = "string"
+label_key = "settings.ollama_model.label"
+description_key = "settings.ollama_model.description"
+visible_when = { key = "llm_backend", values = ["ollama"] }
+default = ""
+
+[[setting]]
+key = "openai_api_key"
+type = "string"
+label_key = "settings.openai_api_key.label"
+description_key = "settings.openai_api_key.description"
+visible_when = { key = "llm_backend", values = ["openai"] }
+default = ""
+
+[[setting]]
+key = "openai_endpoint"
+type = "string"
+label_key = "settings.openai_endpoint.label"
+description_key = "settings.openai_endpoint.description"
+visible_when = { key = "llm_backend", values = ["openai"] }
+default = "https://api.openai.com/v1"
+
+[[setting]]
+key = "openai_model"
+type = "string"
+label_key = "settings.openai_model.label"
+description_key = "settings.openai_model.description"
+visible_when = { key = "llm_backend", values = ["openai"] }
+default = "gpt-5-mini"
+
+[[setting]]
+key = "anthropic_api_key"
+type = "string"
+label_key = "settings.anthropic_api_key.label"
+description_key = "settings.anthropic_api_key.description"
+visible_when = { key = "llm_backend", values = ["anthropic"] }
+default = ""
+
+[[setting]]
+key = "anthropic_model"
+type = "string"
+label_key = "settings.anthropic_model.label"
+description_key = "settings.anthropic_model.description"
+visible_when = { key = "llm_backend", values = ["anthropic"] }
+default = "claude-haiku-4-5"
+
+[[setting]]
+key = "gemini_api_key"
+type = "string"
+label_key = "settings.gemini_api_key.label"
+description_key = "settings.gemini_api_key.description"
+visible_when = { key = "llm_backend", values = ["gemini"] }
+default = ""
+
+[[setting]]
+key = "gemini_model"
+type = "string"
+label_key = "settings.gemini_model.label"
+description_key = "settings.gemini_model.description"
+visible_when = { key = "llm_backend", values = ["gemini"] }
+default = "gemini-2.5-flash"
+
+[[setting]]
+key = "xai_api_key"
+type = "string"
+label_key = "settings.xai_api_key.label"
+description_key = "settings.xai_api_key.description"
+visible_when = { key = "llm_backend", values = ["xai"] }
+default = ""
+
+[[setting]]
+key = "xai_model"
+type = "string"
+label_key = "settings.xai_model.label"
+description_key = "settings.xai_model.description"
+visible_when = { key = "llm_backend", values = ["xai"] }
+default = "grok-4-1-fast-non-reasoning"
+
+[[setting]]
+key = "groq_api_key"
+type = "string"
+label_key = "settings.groq_api_key.label"
+description_key = "settings.groq_api_key.description"
+visible_when = { key = "llm_backend", values = ["groq"] }
+default = ""
+
+[[setting]]
+key = "groq_model"
+type = "string"
+label_key = "settings.groq_model.label"
+description_key = "settings.groq_model.description"
+visible_when = { key = "llm_backend", values = ["groq"] }
+default = "llama-3.3-70b-versatile"
+
+[[setting]]
+key = "deepseek_api_key"
+type = "string"
+label_key = "settings.deepseek_api_key.label"
+description_key = "settings.deepseek_api_key.description"
+visible_when = { key = "llm_backend", values = ["deepseek"] }
+default = ""
+
+[[setting]]
+key = "deepseek_model"
+type = "string"
+label_key = "settings.deepseek_model.label"
+description_key = "settings.deepseek_model.description"
+visible_when = { key = "llm_backend", values = ["deepseek"] }
+default = "deepseek-flash"
+
+[[setting]]
+key = "mistral_api_key"
+type = "string"
+label_key = "settings.mistral_api_key.label"
+description_key = "settings.mistral_api_key.description"
+visible_when = { key = "llm_backend", values = ["mistral"] }
+default = ""
+
+[[setting]]
+key = "mistral_model"
+type = "string"
+label_key = "settings.mistral_model.label"
+description_key = "settings.mistral_model.description"
+visible_when = { key = "llm_backend", values = ["mistral"] }
+default = "mistral-small-latest"
+
+[[setting]]
+key = "openrouter_api_key"
+type = "string"
+label_key = "settings.openrouter_api_key.label"
+description_key = "settings.openrouter_api_key.description"
+visible_when = { key = "llm_backend", values = ["openrouter"] }
+default = ""
+
+[[setting]]
+key = "openrouter_model"
+type = "string"
+label_key = "settings.openrouter_model.label"
+description_key = "settings.openrouter_model.description"
+visible_when = { key = "llm_backend", values = ["openrouter"] }
+default = "~google/gemini-flash-latest"
+
+[[setting]]
+key = "llm_max_tokens"
+type = "string"
+label_key = "settings.llm_max_tokens.label"
+description_key = "settings.llm_max_tokens.description"
+default = "32768"
 
 [[setting]]
 key = "offset_ms"

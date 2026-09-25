@@ -4,6 +4,48 @@ All notable changes to **Media Lyrics** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.5] — Unreleased
+
+### Added
+
+- Track identification through Ollama, OpenAI, Anthropic, Gemini, xAI, Groq,
+  DeepSeek, Mistral, and OpenRouter, with one active backend selected by a
+  dropdown. Only its settings are shown; OpenAI and Ollama endpoints can be
+  overridden. Output token limit uses a numeric text field and defaults to
+  32768. The default OpenRouter model is `~google/gemini-flash-latest`.
+- Backend errors appear alongside the no-lyrics message in both panels,
+  including empty, invalid, and truncated responses. Reload lyrics retries
+  failed identification; changes of track or settings clear stale errors.
+- Optional YouTube chapter lookup via a short-lived `yt-dlp` helper, with
+  chapter-relative lyric timing and seeking.
+- Optional OpenRouter web-search identification for incomplete MPRIS metadata,
+  YouTube videos with or without chapters, and ordinary non-YouTube sources.
+  The API key, model, and `yt-dlp` binary path are configurable; the key is
+  never stored in the plugin repository or passed to a subprocess.
+- Cached metadata and successful identifications. Long unchaptered videos are
+  periodically reconsidered or advanced at a verified tracklist boundary.
+- Literal lyric lookup precedes LLM identification for songs and chapters;
+  titles are not normalized with heuristics. The model queries the plugin's
+  LRCLIB database, inspects results, and selects an actual result ID. No
+  confidence scoring is used. OpenRouter web search remains optional context.
+  Streamed responses avoid the ordinary HTTP client's 30-second timeout.
+- The model can immediately decline clearly non-song videos or segments
+  without searching. Both panels show “Waiting for AI...” during identification
+  and “Classified as not a song by AI” when the model declines.
+- The first AI attempt prioritizes parsing the title and querying lyrics.
+  Web search remains available without a prompt to use it.
+  Background `yt-dlp` extraction does not block this attempt;
+  model and lyric-query durations are logged separately.
+- Avoid repeated whole-lyrics cleanup when checking ordinary lyric texts for
+  placeholder messages. Result-processing errors are returned to the AI tool
+  loop instead of leaving the interface stuck waiting for AI.
+- Reconcile original player metadata with video description, structured music
+  credits, uploader/channel, and the complete chapter list. Retry unfinished
+  identifications when additional context arrives.
+  Chapter labels and uploader names are never described to the model as
+  authoritative song/artist metadata.
+- A settings button in the lyrics panel header opens this plugin's settings.
+
 ## [0.9.4] — 2026-09-09
 
 ### Fixed

@@ -26,6 +26,7 @@ local T = {
 }
 
 local snap = nil
+local llm_backend = require("./llm_backend.luau")
 local lastSnapMs = 0
 
 local function nowMs()
@@ -80,6 +81,18 @@ end
 -- so the vertical centering never moves. Extra space sits under the lyric.
 local LYRIC_ROW_H = 2 * lineH(T.fsLyric)
 
+local function wrapError(text)
+  local lines, line = {}, ""
+  for word in text:gmatch("%S+") do
+    if #line + #word + 1 > 44 and line ~= "" then
+      lines[#lines + 1], line = line, ""
+    end
+    line = line == "" and word or (line .. " " .. word)
+  end
+  lines[#lines + 1] = line
+  return table.concat(lines, "\n")
+end
+
 local function render()
   local s = snap
   if not s or not s.hasPlayer then
@@ -95,6 +108,27 @@ local function render()
   local idx = activeIndex(s)
   if idx >= 1 and s.lyrics and s.lyrics[idx] then
     line = s.lyrics[idx].text or ""
+  end
+  if #(s.lyrics or {}) == 0 then
+    if s.llmStatus == "pending" then
+      line = noctalia.tr("panel.waiting-for-ai")
+    elseif s.llmStatus == "not_song" then
+      line = noctalia.tr("panel.ai-not-song")
+    elseif s.lyricsStatus == "loading" then
+      line = noctalia.tr("panel.loading-lyrics")
+    end
+  end
+
+  -- Backend failures must remain readable even in the compact panel.
+  if #(s.lyrics or {}) == 0 and s.llmError and s.lyricsStatus ~= "loading" then
+    panel.render(ui.scroll({ flexGrow = 1 }, {
+      ui.column({ padding = T.pad, gap = 4 }, {
+        ui.label({ text = title, fontSize = T.fsTitle, color = T.colTitle }),
+        ui.label({ text = wrapError(llm_backend.noLyricsMessage(noctalia.tr("panel.no-lyrics"), s.llmError)),
+          fontSize = T.fsMeta, color = T.colEmpty }),
+      }),
+    }))
+    return
   end
 
   local info = ui.column({ key = "info", gap = 2, flexGrow = 1 }, {

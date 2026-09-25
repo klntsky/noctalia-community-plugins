@@ -1,6 +1,119 @@
 # Media Lyrics
 
-A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (10/14/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel. **Pure Luau implementation**: no playerctl, no python daemons, no GTK overlays — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS + NetEase fallback).
+## Track identification fallback
+
+Ordinary MPRIS metadata remains the first lyric lookup source. When a player
+exposes a YouTube URL, the service can also ask `yt-dlp` for chapter metadata
+without downloading the video. For a chaptered album upload, the active
+chapter's title and duration become the lookup target. Lyric timestamps and
+panel seeking are relative to that chapter.
+
+An optional LLM fallback can identify a track from incomplete MPRIS
+fields, a source URL, video title/uploader, chapter, playback position, and
+duration. It runs only after the literal lyric lookup fails, including for
+chapters. Titles and artist fields are not split or cleaned with heuristics.
+The first LLM attempt reconciles the original player fields with the video
+title, description, music credits, upload channel, full chapter list, active
+chapter and playback position, then calls `search_lyrics` against the same LRCLIB
+database used by the plugin, inspects the returned catalog matches, and may
+revise its query. It selects an actual returned result ID; the plugin uses
+that result's metadata and lyrics. There are no self-assessed confidence
+scores. OpenRouter web search is available from the start, but the prompt
+prioritizes parsing the title and querying the lyric database without asking
+for web research. Chapter labels are treated as hints. Uncached `yt-dlp`
+metadata loads in the background without blocking the first AI attempt;
+successful metadata is cached per video in memory and on disk.
+Uploader/player artist fields and chapter labels are unverified clues: they
+may name a channel, omit the performer, or use translated track names. If new
+context arrives during an unsuccessful or pending identification, the model
+is retried with that context.
+For clearly non-song videos or segments, the model can immediately return
+`{"not_a_song": true}` without lyric or web searches. Both panels show
+“Waiting for AI...” while identification runs and “Classified as not a song
+by AI” for that outcome. Classification is not a backend error and is not
+retried until reload or a track change.
+Successful identifications are reused;
+otherwise each chapter gets one identification sequence until
+reload. It can work without a YouTube URL
+or `yt-dlp`. For long unchaptered videos, it rechecks at most once per
+three-minute position bucket, or at a verified track boundary if the model
+finds a timestamped tracklist. If evidence is insufficient, it leaves the
+identity unchanged rather than guessing. No audio is uploaded or transcribed;
+some videos therefore cannot be identified. Metadata and successful
+identifications are cached in the plugin data directory.
+
+This fallback is controlled in the plugin settings:
+
+- **YouTube fallback** enables chapter lookup (on by default).
+- **yt-dlp binary path** can be an absolute path; empty uses `yt-dlp` from `PATH`.
+- **LLM backend** is a dropdown selecting exactly one provider: Ollama,
+  OpenAI, Anthropic, Gemini, xAI, Groq, DeepSeek, Mistral, or OpenRouter.
+  OpenRouter is the default. Select **Disabled** to turn identification off.
+  Only the selected provider's key, model, and endpoint settings are shown.
+  Saved keys for other providers are inactive; missing keys and failed calls
+  report an error without switching providers.
+- **Ollama endpoint** defaults to `http://localhost:11434/v1`. A local server
+  without authentication needs no API key; select an installed model.
+- **OpenAI endpoint** defaults to `https://api.openai.com/v1`; override it for
+  Ollama or another compatible server. Both a base URL including `/v1` and a
+  full `/chat/completions` URL are accepted.
+- Each provider has a configurable model. OpenRouter defaults to
+  `~google/gemini-flash-latest` with optional web search. All providers get
+  the lyric database search tool; the selected model must support tool calling.
+  Each identification allows up to four lyric queries, with up to 20 results
+  per query, to prevent repeated searches from running indefinitely.
+- **LLM output token limit** is a text field accepting positive whole numbers
+  directly below the selected model and defaults to **32768**, including reasoning for
+  providers that count it in the output budget. This is configurable for
+  models with different limits. Identification returns track metadata only;
+  lyrics still come from the lyrics providers.
+
+If identification fails and there are no lyrics, both panels show
+`No lyrics found (LLM backend for <provider> returned error: <error>)`.
+Authentication, network, malformed/empty response, and token-limit failures
+are included. Reload lyrics or change the provider settings to retry.
+Responses use streaming transport so longer requests are not cut off by the
+ordinary HTTP client's 30-second timeout.
+
+The model is asked for track identity only, not lyrics. Noctalia currently
+stores plugin settings, including the optional API key, as plain text in its
+user settings file. Keep that file private. Provider requests send the key
+through Noctalia's native HTTPS client, never as a subprocess argument.
+
+`yt-dlp` and `python3` are needed only for YouTube metadata extraction. The
+LLM fallback can run without either one. Each identification and web
+search may incur API charges; select Disabled to turn identification off.
+
+A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (10/14/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel. The main panel and lyric pipeline are Luau; the optional YouTube metadata helper is a short-lived Python process. No playerctl, Python daemon, or GTK overlay is needed.
+
+## Replay a lookup
+
+Run the production service and provider adapters with explicit metadata:
+
+```sh
+python3 replay_lyrics.py \
+  --title 'Frost Children, Ninajirachi - Sisters' \
+  --artist 'Frost Children' \
+  --url 'https://www.youtube.com/watch?v=Oyct_cZvYiY' \
+  --duration 223
+```
+
+The command reads the selected provider settings locally and makes real
+database/API calls. It prints the final state and request timings, without
+printing credentials or lyric text. It neither controls the player nor reads
+or writes the live lyric caches. API calls may incur the provider's charges.
+Use `--provider none` to test literal lookup, `--model` to override the model,
+`--metadata path.json` for chapter metadata, or `--yt-dlp` to fetch it anew.
+Without those metadata options, the supplied title/artist/duration are used
+directly, with no chapters and no yt-dlp invocation.
+
+Requires Python 3.11+, `curl`, and `liblua5.4`. This replay uses Lua 5.4 to run
+the same source files; it does not emulate Noctalia's Luau callback CPU budget
+or render its UI. Tests use deterministic transports and real JSON:
+
+```sh
+python3 -m unittest test_llm_backend.py test_youtube_info.py test_replay_lyrics.py
+```
 
 | Light theme | Dark theme |
 | --- | --- |

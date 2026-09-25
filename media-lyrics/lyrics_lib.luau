@@ -110,10 +110,15 @@ local NETEASE_PLACEHOLDERS = { "纯音乐请欣赏", "纯音乐版", "暂无歌�
 lib.NETEASE_PLACEHOLDERS = NETEASE_PLACEHOLDERS
 
 function lib.isPlaceholderLyrics(raw)
+  raw = raw or ""
+  -- Every placeholder contains one of these characters, even with spaces or
+  -- punctuation inserted. Avoid seven whole-lyrics substitutions (per result)
+  -- for ordinary lyrics; LRCLIB searches can return many full lyric texts.
+  if not raw:find("纯", 1, true) and not raw:find("暂", 1, true) then return false end
   -- Byte-safe sanitize: multibyte chars must NOT live inside a Lua character
   -- class together with ASCII punctuation — it corrupts UTF-8 bytes. Strip
   -- timestamps + ASCII punctuation first, then full-width chars literally.
-  local cleaned = (raw or ""):gsub("%[%d+:%d+%.?%d*%]", "")
+  local cleaned = raw:gsub("%[%d+:%d+%.?%d*%]", "")
   cleaned = cleaned:gsub("[%s,.!?]", "")
   cleaned = cleaned:gsub("，", ""):gsub("。", ""):gsub("．", "")
   cleaned = cleaned:gsub("！", ""):gsub("？", "")
