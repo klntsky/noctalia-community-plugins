@@ -16,7 +16,7 @@ author = "tranzem"
 license = "MIT"
 tags = ["media", "music", "panel", "service"]
 icon = "music"
-description = "Synced lyrics media panel with optional YouTube chapters and track identification. Runtime needs busctl + curl."
+description = "Synced and plain lyrics with optional YouTube chapters, cumulative album timelines and track identification. Runtime needs busctl + curl."
 dependencies = ["busctl", "curl"]
 
 [[setting]]
@@ -41,40 +41,21 @@ description_key = "settings.llm_backend.description"
 default = "openrouter"
 options = [
   { value = "none", label_key = "settings.llm_backend.options.none" },
-  { value = "ollama", label_key = "settings.llm_backend.options.ollama" },
   { value = "openai", label_key = "settings.llm_backend.options.openai" },
   { value = "anthropic", label_key = "settings.llm_backend.options.anthropic" },
   { value = "gemini", label_key = "settings.llm_backend.options.gemini" },
   { value = "xai", label_key = "settings.llm_backend.options.xai" },
   { value = "groq", label_key = "settings.llm_backend.options.groq" },
-  { value = "deepseek", label_key = "settings.llm_backend.options.deepseek" },
   { value = "mistral", label_key = "settings.llm_backend.options.mistral" },
   { value = "openrouter", label_key = "settings.llm_backend.options.openrouter" },
 ]
 
 [[setting]]
-key = "ollama_api_key"
-type = "string"
-label_key = "settings.ollama_api_key.label"
-description_key = "settings.ollama_api_key.description"
-visible_when = { key = "llm_backend", values = ["ollama"] }
-default = ""
-
-[[setting]]
-key = "ollama_endpoint"
-type = "string"
-label_key = "settings.ollama_endpoint.label"
-description_key = "settings.ollama_endpoint.description"
-visible_when = { key = "llm_backend", values = ["ollama"] }
-default = "http://localhost:11434/v1"
-
-[[setting]]
-key = "ollama_model"
-type = "string"
-label_key = "settings.ollama_model.label"
-description_key = "settings.ollama_model.description"
-visible_when = { key = "llm_backend", values = ["ollama"] }
-default = ""
+key = "automatic_ai_fallback"
+type = "bool"
+label_key = "settings.automatic_ai_fallback.label"
+description_key = "settings.automatic_ai_fallback.description"
+default = false
 
 [[setting]]
 key = "openai_api_key"
@@ -98,7 +79,7 @@ type = "string"
 label_key = "settings.openai_model.label"
 description_key = "settings.openai_model.description"
 visible_when = { key = "llm_backend", values = ["openai"] }
-default = "gpt-5-mini"
+default = "gpt-5.6-luna"
 
 [[setting]]
 key = "anthropic_api_key"
@@ -130,7 +111,7 @@ type = "string"
 label_key = "settings.gemini_model.label"
 description_key = "settings.gemini_model.description"
 visible_when = { key = "llm_backend", values = ["gemini"] }
-default = "gemini-2.5-flash"
+default = "gemini-flash-latest"
 
 [[setting]]
 key = "xai_api_key"
@@ -146,7 +127,7 @@ type = "string"
 label_key = "settings.xai_model.label"
 description_key = "settings.xai_model.description"
 visible_when = { key = "llm_backend", values = ["xai"] }
-default = "grok-4-1-fast-non-reasoning"
+default = "grok-4.3-latest"
 
 [[setting]]
 key = "groq_api_key"
@@ -162,23 +143,7 @@ type = "string"
 label_key = "settings.groq_model.label"
 description_key = "settings.groq_model.description"
 visible_when = { key = "llm_backend", values = ["groq"] }
-default = "llama-3.3-70b-versatile"
-
-[[setting]]
-key = "deepseek_api_key"
-type = "string"
-label_key = "settings.deepseek_api_key.label"
-description_key = "settings.deepseek_api_key.description"
-visible_when = { key = "llm_backend", values = ["deepseek"] }
-default = ""
-
-[[setting]]
-key = "deepseek_model"
-type = "string"
-label_key = "settings.deepseek_model.label"
-description_key = "settings.deepseek_model.description"
-visible_when = { key = "llm_backend", values = ["deepseek"] }
-default = "deepseek-flash"
+default = "openai/gpt-oss-120b"
 
 [[setting]]
 key = "mistral_api_key"
@@ -218,6 +183,27 @@ type = "string"
 label_key = "settings.llm_max_tokens.label"
 description_key = "settings.llm_max_tokens.description"
 default = "32768"
+
+[[setting]]
+key = "llm_database_search_limit"
+type = "string"
+label_key = "settings.llm_database_search_limit.label"
+description_key = "settings.llm_database_search_limit.description"
+default = "4"
+
+[[setting]]
+key = "llm_web_search_limit"
+type = "string"
+label_key = "settings.llm_web_search_limit.label"
+description_key = "settings.llm_web_search_limit.description"
+default = "4"
+
+[[setting]]
+key = "llm_album_page_limit"
+type = "string"
+label_key = "settings.llm_album_page_limit.label"
+description_key = "settings.llm_album_page_limit.description"
+default = "4"
 
 [[setting]]
 key = "offset_ms"

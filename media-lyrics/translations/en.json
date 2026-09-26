@@ -8,8 +8,14 @@
     "loading-lyrics": "Loading lyrics…",
     "waiting-for-ai": "Waiting for AI...",
     "ai-not-song": "Classified as not a song by AI",
+    "ai-took": "took",
+    "ai-cost": "cost",
     "lyrics-error": "Lyrics error: ",
     "no-lyrics": "No lyrics found",
+    "ai-setup-before": "Set up AI features in the",
+    "ai-setup-link": "settings",
+    "ai-setup-after": "to search for the lyrics on the web",
+    "look-up-with-ai": "Look up with AI",
     "no-media-player": "No media player",
     "no-variants": "No alternative lyrics found",
     "now-playing": "NOW PLAYING",
@@ -17,6 +23,8 @@
     "settings": "Plugin settings",
     "synced": "synced",
     "unsynced": "unsynced",
+    "web-from": "from",
+    "web-via-ai": "via AI",
     "variant-default": "Default"
   },
   "provider": {
@@ -30,111 +38,105 @@
   "settings": {
     "youtube_fallback": {
       "label": "YouTube fallback",
-      "description": "Use yt-dlp chapters for YouTube videos when available."
+      "description": "Use YouTube metadata and chapters; extract album tracklists when chapters are missing."
     },
     "yt_dlp_path": {
       "label": "yt-dlp binary path",
       "description": "Leave empty to find yt-dlp in PATH, or enter an absolute executable path."
     },
     "llm_backend": {
-      "label": "LLM backend",
-      "description": "Use only this backend for track identification. Select Disabled to turn identification off.",
+      "label": "AI · Provider",
+      "description": "Choose an AI provider to identify songs, read album tracklists, and find lyrics when the lyric databases can't. Select Disabled to turn off AI features.",
       "options": {
         "none": "Disabled",
-        "ollama": "Ollama",
         "openai": "OpenAI",
         "anthropic": "Anthropic",
         "gemini": "Gemini",
         "xai": "xAI",
         "groq": "Groq",
-        "deepseek": "DeepSeek",
         "mistral": "Mistral",
         "openrouter": "OpenRouter"
       }
     },
-    "ollama_api_key": {
-      "label": "Ollama API key",
-      "description": "Optional for a local server without authentication. Enter a key if your server requires one."
-    },
-    "ollama_model": {
-      "label": "Ollama model",
-      "description": "Name of an installed Ollama model."
-    },
-    "ollama_endpoint": {
-      "label": "Ollama endpoint",
-      "description": "API base URL including /v1, or a full /chat/completions URL. Supports Ollama and other OpenAI-compatible servers."
+    "automatic_ai_fallback": {
+      "label": "AI · Automatic fallback to AI lookup (skips confirmation)",
+      "description": "Start an AI lookup automatically when direct lyric sources have no result. When off, use the Look up with AI button."
     },
     "openai_api_key": {
-      "label": "OpenAI API key",
-      "description": "Used only when this backend is selected. Settings are stored as plain text."
+      "label": "AI · OpenAI API key",
+      "description": "Saved in plain text in Noctalia settings."
     },
     "openai_model": {
-      "label": "OpenAI model",
-      "description": "Model for track identification. Default: gpt-5-mini."
+      "label": "AI · OpenAI model",
+      "description": "Model for track identification."
     },
     "openai_endpoint": {
-      "label": "OpenAI endpoint",
-      "description": "API base URL including /v1, or a full /chat/completions URL. Supports Ollama and other OpenAI-compatible servers."
+      "label": "AI · OpenAI endpoint",
+      "description": "API base URL including /v1. Web lookup requires a Responses API endpoint with provider-run web search."
     },
     "anthropic_api_key": {
-      "label": "Anthropic API key",
-      "description": "Used only when this backend is selected. Settings are stored as plain text."
+      "label": "AI · Anthropic API key",
+      "description": "Saved in plain text in Noctalia settings."
     },
     "anthropic_model": {
-      "label": "Anthropic model",
-      "description": "Model for track identification. Default: claude-haiku-4-5."
+      "label": "AI · Anthropic model",
+      "description": "Model for track identification."
     },
     "gemini_api_key": {
-      "label": "Gemini API key",
-      "description": "Used only when this backend is selected. Settings are stored as plain text."
+      "label": "AI · Gemini API key",
+      "description": "Saved in plain text in Noctalia settings."
     },
     "gemini_model": {
-      "label": "Gemini model",
-      "description": "Model for track identification. Default: gemini-2.5-flash."
+      "label": "AI · Gemini model",
+      "description": "Model for track identification."
     },
     "xai_api_key": {
-      "label": "xAI API key",
-      "description": "Used only when this backend is selected. Settings are stored as plain text."
+      "label": "AI · xAI API key",
+      "description": "Saved in plain text in Noctalia settings."
     },
     "xai_model": {
-      "label": "xAI model",
-      "description": "Model for track identification. Default: grok-4-1-fast-non-reasoning."
+      "label": "AI · xAI model",
+      "description": "Model for track identification."
     },
     "groq_api_key": {
-      "label": "Groq API key",
-      "description": "Used only when this backend is selected. Settings are stored as plain text."
+      "label": "AI · Groq API key",
+      "description": "Saved in plain text in Noctalia settings."
     },
     "groq_model": {
-      "label": "Groq model",
-      "description": "Model for track identification. Default: llama-3.3-70b-versatile."
-    },
-    "deepseek_api_key": {
-      "label": "DeepSeek API key",
-      "description": "Used only when this backend is selected. Settings are stored as plain text."
-    },
-    "deepseek_model": {
-      "label": "DeepSeek model",
-      "description": "Model for track identification. Default: deepseek-flash."
+      "label": "AI · Groq model",
+      "description": "Model for track identification."
     },
     "mistral_api_key": {
-      "label": "Mistral API key",
-      "description": "Used only when this backend is selected. Settings are stored as plain text."
+      "label": "AI · Mistral API key",
+      "description": "Saved in plain text in Noctalia settings."
     },
     "mistral_model": {
-      "label": "Mistral model",
-      "description": "Model for track identification. Default: mistral-small-latest."
+      "label": "AI · Mistral model",
+      "description": "Model for track identification."
     },
     "llm_max_tokens": {
-      "label": "LLM output token limit",
-      "description": "Enter a positive whole number. Maximum output tokens per request, including reasoning where applicable. Default: 32768. Must be supported by the selected model."
+      "label": "AI · Output token limit",
+      "description": "Enter a positive whole number. Maximum output tokens per request, including reasoning where applicable. Must be supported by the selected model."
+    },
+    "llm_database_search_limit": {
+      "label": "AI · Lyrics database search limit",
+      "description": "Enter a positive whole number. Maximum lyrics database queries per song identification attempt."
+    },
+    "llm_web_search_limit": {
+      "label": "AI · Web lyrics browsing limit",
+      "description": "Enter a positive whole number. Maximum provider web searches and page fetches per lyrics lookup, where supported."
+    },
+    "llm_album_page_limit": {
+      "label": "AI · Album browsing limit",
+      "description": "Enter a positive whole number. Maximum provider web searches and page fetches per tracklist lookup, where supported."
     },
     "openrouter_api_key": {
-      "label": "OpenRouter API key",
-      "description": "Used only when this backend is selected. Settings are stored as plain text."
+      "label": "AI · OpenRouter API key",
+      "description": "Saved in plain text in Noctalia settings."
     },
     "openrouter_model": {
-      "label": "OpenRouter model",
-      "description": "Model for track identification with web search. Default: ~google/gemini-flash-latest."
+      "label": "AI · OpenRouter model",
+      "description": "Model for track identification with web search."
     },
     "album_art_only": {
       "description": "Show only the album artwork (no text).",

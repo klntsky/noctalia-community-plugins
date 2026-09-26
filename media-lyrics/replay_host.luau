@@ -1,6 +1,6 @@
 -- Runs the production service with explicit input and an isolated host.
 local root = replay_bridge("root")
-local callbacks, streams, modules = {}, {}, {}
+local callbacks, streams, modules, watchers = {}, {}, {}, {}
 local serial = 0
 local function nextId()
   serial = serial + 1
@@ -32,7 +32,7 @@ noctalia = {
   setUpdateInterval = function() end,
   state = {
     set = function(key, value) replay_bridge("state", { key, value }) end,
-    watch = function() end,
+    watch = function(key, callback) watchers[key] = callback end,
   },
   runAsync = function(argv, callback, timeout)
     local id = nextId()
@@ -48,7 +48,9 @@ noctalia = {
   end,
 }
 function replay_dispatch(kind, id, value)
-  if kind == "command" then
+  if kind == "state" then
+    if watchers[id] then watchers[id](value) end
+  elseif kind == "command" then
     local callback = callbacks[id]
     callbacks[id] = nil
     if callback then callback(value) end

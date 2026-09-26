@@ -257,7 +257,8 @@ local function buildLyricsBody(s)
       or vi > 0
     if hasDefault then
       local defLabel = noctalia.tr("panel.variant-default")
-        .. (vi == 0 and s.lyricsProvider ~= "" and (" (" .. s.lyricsProvider .. ")") or "")
+        .. (vi == 0 and s.lyricsProvider ~= "" and (s.lyricsSourceUrl or "") == ""
+          and (" (" .. s.lyricsProvider .. ")") or "")
       rows[#rows + 1] = ui.button({
         key = "candDef",
         text = defLabel,
@@ -297,10 +298,6 @@ local function buildLyricsBody(s)
         color = T.emptyState, fontSize = T.fsFarLyric, textAlign = "center" }) }
     end
     return rows
-  end
-  if s.lyricsStatus == "error" and not s.llmError then
-    return { ui.label({ text = noctalia.tr("panel.lyrics-error") .. (s.lyricsError or ""),
-      color = "error", fontSize = T.fsFarLyric, textAlign = "center" }) }
   end
   if (s.lyricsStatus == "choose" or s.lyricsStatus == "ready") and #(s.lyrics or {}) > 0 then
     -- ready, or "choose" with the picker closed (or a picked variant live):
@@ -453,8 +450,35 @@ local function buildLyricsBody(s)
   end
   -- No lyrics after the whole chain (and the picker shows nothing else):
   local message = llm_backend.noLyricsMessage(noctalia.tr("panel.no-lyrics"), s.llmError)
-  return { ui.label({ text = wrapLyric(message, T.fsFarLyric, "medium"), color = T.emptyState,
+  local directError = s.lyricsStatus == "error" and not s.llmError and s.aiLookupState == "none"
+  if directError then
+    message = noctalia.tr("panel.lyrics-error") .. (s.lyricsError or "")
+  end
+  local rows = { ui.label({ text = wrapLyric(message, T.fsFarLyric, "medium"),
+    color = directError and "error" or T.emptyState,
     fontSize = T.fsFarLyric, fontWeight = "medium", textAlign = "center" }) }
+  if s.aiLookupState == "confirm" or s.aiLookupState == "setup" then
+    if s.aiLookupState == "confirm" then
+      rows[#rows + 1] = ui.row({ key = "ai-lookup-row", width = "stretch", justify = "center" }, {
+        ui.button({ key = "ai-lookup", text = noctalia.tr("panel.look-up-with-ai"),
+          onClick = function() noctalia.state.set("panel_req", { action = "lookUpWithAi" }) end }),
+      })
+    else
+      rows[#rows + 1] = ui.column({ key = "ai-setup", width = "stretch", align = "center", gap = 0 }, {
+        ui.label({ text = noctalia.tr("panel.ai-setup-before"),
+          color = T.emptyState, fontSize = T.fsMeta, textAlign = "center" }),
+        ui.row({ key = "ai-setup-link-row", width = "stretch", align = "center", justify = "center", gap = 0 }, {
+          ui.row({ key = "ai-setup-link", onClick = function() noctalia.openSettings() end }, {
+            ui.label({ text = noctalia.tr("panel.ai-setup-link"),
+              color = "primary", fontSize = T.fsMeta }),
+          }),
+          ui.label({ text = " " .. noctalia.tr("panel.ai-setup-after"),
+            color = T.emptyState, fontSize = T.fsMeta }),
+        }),
+      })
+    end
+  end
+  return rows
 end
 
 -- ============================= cover: art + progress =============================
@@ -728,6 +752,42 @@ local function render()
       .. (s.synced and (" - " .. noctalia.tr("panel.synced"))
         or (" - " .. noctalia.tr("panel.unsynced")))
   end
+  local footer = ui.label({ key = "footer", text = footerTxt, fontSize = T.fsOverline,
+    color = T.footer, visible = footerTxt ~= "" })
+  local sourceUrl = s.lyricsSourceUrl or ""
+  if footerTxt ~= "" and sourceUrl ~= "" then
+    local authority = (sourceUrl:match("^https?://([^/?#]+)") or ""):gsub("^.*@", "")
+    local hostname = (authority:match("^%[([^%]]+)%]") or authority:match("^([^:]+)") or authority):lower()
+    footer = ui.row({ key = "footer", align = "center", gap = 3 }, {
+      ui.label({ text = noctalia.tr("panel.web-from") .. " ", fontSize = T.fsOverline, color = T.footer }),
+      ui.row({ key = "lyrics-source-link", onClick = function()
+        sendCmd("openLyricsSource", { url = sourceUrl })
+      end }, {
+        ui.label({ text = hostname, fontSize = T.fsOverline, color = "primary" }),
+      }),
+      ui.label({ text = " " .. noctalia.tr("panel.web-via-ai"), fontSize = T.fsOverline, color = T.footer }),
+    })
+  end
+  local hasAiSummary = type(s.aiLookupSeconds) == "number"
+  local aiTime = hasAiSummary and (noctalia.tr("panel.ai-took") .. " "
+    .. math.floor(s.aiLookupSeconds + 0.5) .. "s.") or ""
+  local aiCost = ""
+  if hasAiSummary and type(s.aiLookupCost) == "number" then
+    aiCost = noctalia.tr("panel.ai-cost") .. " "
+      .. (s.aiLookupCost > 0 and s.aiLookupCost < 0.0005 and "<$0.001"
+        or string.format("$%.3f", s.aiLookupCost))
+  end
+  local footerChildren = { footer, ui.spacer({ flexGrow = 1 }) }
+  if hasAiSummary then
+    local summaryLabels = { ui.label({ text = aiTime, fontSize = T.fsOverline, color = T.footer }) }
+    if aiCost ~= "" then
+      summaryLabels[#summaryLabels + 1] = ui.label({ text = aiCost,
+        fontSize = T.fsOverline, color = T.footer })
+    end
+    footerChildren[#footerChildren + 1] = ui.row({ key = "ai-summary",
+      align = "center", gap = T.gapMicro }, summaryLabels)
+  end
+  local footerRow = ui.row({ key = "footer-row", width = "stretch", align = "center" }, footerChildren)
 
   panel.render(ui.column({ flexGrow = 1, padding = T.pad, gap = T.gapBand }, {
     -- A. chrome header: overline left, compact controls right
@@ -770,9 +830,8 @@ local function render()
     buildProgressBar(s),
     -- C. lyrics (flexGrow)
     ui.column({ key = "lyrics", flexGrow = 1, gap = T.gapMicro }, buildLyricsBody(s)),
-    -- D. footer: provider - mode
-    ui.label({ key = "footer", text = footerTxt, fontSize = T.fsOverline,
-      color = T.footer, visible = footerTxt ~= "" }),
+    -- D. footer: lyrics source on the left, AI timing and cost on the right
+    footerRow,
   }))
 end
 

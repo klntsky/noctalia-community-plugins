@@ -177,6 +177,7 @@ class Replay:
         if operation == "urlEncode": return urllib.parse.quote(value, safe="")
         if operation == "nowMs": return time.monotonic() * 1000
         if operation == "readFile":
+            if value in self.files: return self.files[value]
             if "/youtube/chapters-" in value and not self.args.yt_dlp:
                 return json.dumps(self.metadata, ensure_ascii=False)
             return self.files.get(value)
@@ -231,22 +232,59 @@ class Replay:
             self.events.append({"network_error": type(error).__name__})
         self.lua.dispatch("close", id_, {"ok": ok, "status": status})
 
+    def drain(self):
+        while self.queue:
+            if time.monotonic() - self.started > self.args.timeout:
+                raise TimeoutError("Replay deadline exceeded")
+            kind, value = self.queue.popleft()
+            if kind == "command": self.lua.dispatch("command", value["id"], self.command(value))
+            else: self.http(value)
+        if self.snapshot.get("llmStatus") == "pending" or self.snapshot.get("lyricsStatus") == "loading":
+            raise RuntimeError("Pipeline stalled: pending state with no queued work")
+
+    def summary(self):
+        return {"title": self.snapshot.get("title"), "artist": self.snapshot.get("artist"),
+            "lyrics_status": self.snapshot.get("lyricsStatus"), "ai_status": self.snapshot.get("llmStatus"),
+            "lyrics_provider": self.snapshot.get("lyricsProvider"),
+            "first_lyric_time": (self.snapshot.get("lyrics") or [{}])[0].get("time"),
+            "last_lyric_time": (self.snapshot.get("lyrics") or [{}])[-1].get("time"),
+            "ai_lookup_seconds": self.snapshot.get("aiLookupSeconds"),
+            "ai_lookup_cost": self.snapshot.get("aiLookupCost"),
+            "error": self.snapshot.get("llmError"), "lyric_lines": len(self.snapshot.get("lyrics", [])),
+            "synced": self.snapshot.get("synced"), "position_seconds": self.snapshot.get("posSec"),
+            "track_duration_seconds": self.snapshot.get("lengthSec"),
+            "album_track_index": self.snapshot.get("albumTrackIndex", 0),
+            "album_track_count": self.snapshot.get("albumTrackCount", 0),
+            "timing_estimated": self.snapshot.get("timingEstimated", False)}
+
     def run(self):
         try:
             self.lua.execute((ROOT / "replay_host.luau").read_text())
-            while self.queue:
-                if time.monotonic() - self.started > self.args.timeout:
-                    raise TimeoutError("Replay deadline exceeded")
-                kind, value = self.queue.popleft()
-                if kind == "command": self.lua.dispatch("command", value["id"], self.command(value))
-                else: self.http(value)
-            if self.snapshot.get("llmStatus") == "pending" or self.snapshot.get("lyricsStatus") == "loading":
-                raise RuntimeError("Pipeline stalled: pending state with no queued work")
-            return {"seconds": round(time.monotonic() - self.started, 3),
-                "title": self.snapshot.get("title"), "artist": self.snapshot.get("artist"),
-                "lyrics_status": self.snapshot.get("lyricsStatus"), "ai_status": self.snapshot.get("llmStatus"),
-                "error": self.snapshot.get("llmError"), "lyric_lines": len(self.snapshot.get("lyrics", [])),
-                "events": self.events}
+            self.drain()
+            pre_ai_status = self.snapshot.get("llmStatus")
+            pre_lyrics_status = self.snapshot.get("lyricsStatus")
+            pre_ai_lookup_state = self.snapshot.get("aiLookupState")
+            ai_click_sent = False
+            if getattr(self.args, "confirm_ai", False) and pre_lyrics_status in ("empty", "error"):
+                if pre_ai_lookup_state != "confirm":
+                    raise RuntimeError("AI lookup was not waiting for confirmation")
+                self.lua.dispatch("state", "panel_req", {"action": "lookUpWithAi"})
+                ai_click_sent = True
+                self.drain()
+            positions = []
+            for position in getattr(self.args, "positions", None) or []:
+                self.args.position = position
+                self.lua.execute("update()")
+                self.drain()
+                positions.append({"video_position_seconds": position, **self.summary()})
+            tracklist = next((json.loads(value).get("tracklist") for key, value in self.files.items()
+                              if "/youtube/chapters-" in key and json.loads(value).get("tracklist")), None)
+            return {"seconds": round(time.monotonic() - self.started, 3), **self.summary(),
+                "pre_ai_status": pre_ai_status, "pre_lyrics_status": pre_lyrics_status,
+                "pre_ai_lookup_state": pre_ai_lookup_state,
+                "ai_click_sent": ai_click_sent,
+                **({"album_tracklist": tracklist} if tracklist else {}),
+                **({"positions": positions} if positions else {}), "events": self.events}
         finally:
             self.lua.close()
 
@@ -259,10 +297,12 @@ def main():
     parser.add_argument("--url", default="")
     parser.add_argument("--duration", type=float, default=0)
     parser.add_argument("--position", type=float, default=0)
+    parser.add_argument("--positions", type=float, nargs="+", help="Then seek through these positions using the same in-memory cache")
     parser.add_argument("--provider", help="Override the selected backend; 'none' skips AI")
     parser.add_argument("--model", help="Override the selected provider's model")
     parser.add_argument("--metadata", type=Path, help="Explicit yt-dlp helper JSON, including chapters")
     parser.add_argument("--yt-dlp", action="store_true", help="Fetch fresh YouTube metadata instead of using explicit input")
+    parser.add_argument("--confirm-ai", action="store_true", help="Send the panel's AI lookup request after direct lyrics fail")
     parser.add_argument("--timeout", type=float, default=120)
     args = parser.parse_args()
     replay = Replay(args)

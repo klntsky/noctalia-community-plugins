@@ -1,119 +1,6 @@
 # Media Lyrics
 
-## Track identification fallback
-
-Ordinary MPRIS metadata remains the first lyric lookup source. When a player
-exposes a YouTube URL, the service can also ask `yt-dlp` for chapter metadata
-without downloading the video. For a chaptered album upload, the active
-chapter's title and duration become the lookup target. Lyric timestamps and
-panel seeking are relative to that chapter.
-
-An optional LLM fallback can identify a track from incomplete MPRIS
-fields, a source URL, video title/uploader, chapter, playback position, and
-duration. It runs only after the literal lyric lookup fails, including for
-chapters. Titles and artist fields are not split or cleaned with heuristics.
-The first LLM attempt reconciles the original player fields with the video
-title, description, music credits, upload channel, full chapter list, active
-chapter and playback position, then calls `search_lyrics` against the same LRCLIB
-database used by the plugin, inspects the returned catalog matches, and may
-revise its query. It selects an actual returned result ID; the plugin uses
-that result's metadata and lyrics. There are no self-assessed confidence
-scores. OpenRouter web search is available from the start, but the prompt
-prioritizes parsing the title and querying the lyric database without asking
-for web research. Chapter labels are treated as hints. Uncached `yt-dlp`
-metadata loads in the background without blocking the first AI attempt;
-successful metadata is cached per video in memory and on disk.
-Uploader/player artist fields and chapter labels are unverified clues: they
-may name a channel, omit the performer, or use translated track names. If new
-context arrives during an unsuccessful or pending identification, the model
-is retried with that context.
-For clearly non-song videos or segments, the model can immediately return
-`{"not_a_song": true}` without lyric or web searches. Both panels show
-“Waiting for AI...” while identification runs and “Classified as not a song
-by AI” for that outcome. Classification is not a backend error and is not
-retried until reload or a track change.
-Successful identifications are reused;
-otherwise each chapter gets one identification sequence until
-reload. It can work without a YouTube URL
-or `yt-dlp`. For long unchaptered videos, it rechecks at most once per
-three-minute position bucket, or at a verified track boundary if the model
-finds a timestamped tracklist. If evidence is insufficient, it leaves the
-identity unchanged rather than guessing. No audio is uploaded or transcribed;
-some videos therefore cannot be identified. Metadata and successful
-identifications are cached in the plugin data directory.
-
-This fallback is controlled in the plugin settings:
-
-- **YouTube fallback** enables chapter lookup (on by default).
-- **yt-dlp binary path** can be an absolute path; empty uses `yt-dlp` from `PATH`.
-- **LLM backend** is a dropdown selecting exactly one provider: Ollama,
-  OpenAI, Anthropic, Gemini, xAI, Groq, DeepSeek, Mistral, or OpenRouter.
-  OpenRouter is the default. Select **Disabled** to turn identification off.
-  Only the selected provider's key, model, and endpoint settings are shown.
-  Saved keys for other providers are inactive; missing keys and failed calls
-  report an error without switching providers.
-- **Ollama endpoint** defaults to `http://localhost:11434/v1`. A local server
-  without authentication needs no API key; select an installed model.
-- **OpenAI endpoint** defaults to `https://api.openai.com/v1`; override it for
-  Ollama or another compatible server. Both a base URL including `/v1` and a
-  full `/chat/completions` URL are accepted.
-- Each provider has a configurable model. OpenRouter defaults to
-  `~google/gemini-flash-latest` with optional web search. All providers get
-  the lyric database search tool; the selected model must support tool calling.
-  Each identification allows up to four lyric queries, with up to 20 results
-  per query, to prevent repeated searches from running indefinitely.
-- **LLM output token limit** is a text field accepting positive whole numbers
-  directly below the selected model and defaults to **32768**, including reasoning for
-  providers that count it in the output budget. This is configurable for
-  models with different limits. Identification returns track metadata only;
-  lyrics still come from the lyrics providers.
-
-If identification fails and there are no lyrics, both panels show
-`No lyrics found (LLM backend for <provider> returned error: <error>)`.
-Authentication, network, malformed/empty response, and token-limit failures
-are included. Reload lyrics or change the provider settings to retry.
-Responses use streaming transport so longer requests are not cut off by the
-ordinary HTTP client's 30-second timeout.
-
-The model is asked for track identity only, not lyrics. Noctalia currently
-stores plugin settings, including the optional API key, as plain text in its
-user settings file. Keep that file private. Provider requests send the key
-through Noctalia's native HTTPS client, never as a subprocess argument.
-
-`yt-dlp` and `python3` are needed only for YouTube metadata extraction. The
-LLM fallback can run without either one. Each identification and web
-search may incur API charges; select Disabled to turn identification off.
-
-A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (10/14/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel. The main panel and lyric pipeline are Luau; the optional YouTube metadata helper is a short-lived Python process. No playerctl, Python daemon, or GTK overlay is needed.
-
-## Replay a lookup
-
-Run the production service and provider adapters with explicit metadata:
-
-```sh
-python3 replay_lyrics.py \
-  --title 'Frost Children, Ninajirachi - Sisters' \
-  --artist 'Frost Children' \
-  --url 'https://www.youtube.com/watch?v=Oyct_cZvYiY' \
-  --duration 223
-```
-
-The command reads the selected provider settings locally and makes real
-database/API calls. It prints the final state and request timings, without
-printing credentials or lyric text. It neither controls the player nor reads
-or writes the live lyric caches. API calls may incur the provider's charges.
-Use `--provider none` to test literal lookup, `--model` to override the model,
-`--metadata path.json` for chapter metadata, or `--yt-dlp` to fetch it anew.
-Without those metadata options, the supplied title/artist/duration are used
-directly, with no chapters and no yt-dlp invocation.
-
-Requires Python 3.11+, `curl`, and `liblua5.4`. This replay uses Lua 5.4 to run
-the same source files; it does not emulate Noctalia's Luau callback CPU budget
-or render its UI. Tests use deterministic transports and real JSON:
-
-```sh
-python3 -m unittest test_llm_backend.py test_youtube_info.py test_replay_lyrics.py
-```
+A full-featured media player panel with **time-synced lyrics** for the Noctalia desktop shell. Karaoke-style lyric carousel (10/14/16 visible lines per size preset), album cover, transport controls, and a progress bar — all in one floating panel. No playerctl, Python daemon, or GTK overlay — runtime needs `busctl` (MPRIS) and `curl` (LRCLIB HTTPS + NetEase fallback).
 
 | Light theme | Dark theme |
 | --- | --- |
@@ -128,7 +15,7 @@ python3 -m unittest test_llm_backend.py test_youtube_info.py test_replay_lyrics.
 
 ## Requirements
 
-- Noctalia v5 (plugin API 24+)
+- Noctalia 5.0.1+ (plugin API 30)
 - `busctl` (systemd, present on every Arch install)
 - `curl` — used for the HTTPS lyric fetches: LRCLIB primary + NetEase Cloud
   Music fallback (spawned as `curl -sSf -m 8 -4 <url>`, argv-only, no shell;
@@ -137,6 +24,12 @@ python3 -m unittest test_llm_backend.py test_youtube_info.py test_replay_lyrics.
   `https://music.163.com` (NetEase fallback) for lyrics
 
 No player-specific software. Any MPRIS-capable player works: Spotify, MPD, Cider, web players, VLC, and anything else that exposes MPRIS over D-Bus. `sleep` (coreutils) is used for a short refresh delay after transport commands.
+
+## Optional dependencies
+
+- `python3` for YouTube metadata and captions (standard library only).
+- `yt-dlp` for YouTube chapters and album metadata; its path can be set in plugin settings.
+- `xdg-open` (xdg-utils) to open lyric source links.
 
 ## Usage
 
@@ -196,6 +89,10 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 ## Features
 
+- **AI song identification** — helps find lyrics when track titles or artist names don't have an exact match by letting a LLM search the online database.
+- **YouTube albums** — follows chapters, or finds an album tracklist and estimates track boundaries from song durations when chapters are missing. Requires [yt-dlp](https://github.com/yt-dlp/yt-dlp/). Enables lyrics for generic FULL ALBUM youtube uploads.
+- **YouTube captions** — uses available captions as timed lines when lyric sources miss, before offering AI lookup. Captions follow chapter or album track timing when those boundaries are available.
+- **Web lyrics fallback** — when lyric databases have no match, AI can find plain lyrics through the selected provider's web search and page reading, with a clickable source link. The lyrics are not timestamped in this case.
 - **Karaoke lyric carousel** — 10/14/16 lines visible at once (compact/medium/large presets); the active line is bright, neighbours fade by distance (Clavis-style). Works with synced (LRC) and plain lyrics.
 - **Clickable lyric lines** — click a synced line to seek the player to that timestamp.
 - **Manual lyric scroll** — Up/Down step a line (the host's chord validator accepts only basic key names; PageUp/PageDown/Home/End are rejected).
@@ -220,6 +117,17 @@ The panel shows the active MPRIS player automatically; when nothing is playing i
 
 | Setting | Type | Default | Description |
 | --- | --- | --- | --- |
+| `youtube_fallback` | `bool` | `true` | Use YouTube metadata for chapters and album tracklists. |
+| `yt_dlp_path` | `string` | *(empty)* | Path to `yt-dlp`; leave empty to use the copy in `PATH`. |
+| `llm_backend` | `select` | `openrouter` | AI provider for song identification, album tracklists, and lyric fallback; choose `none` to disable AI. |
+| `automatic_ai_fallback` | `bool` | `false` | Start AI lookup automatically when direct lyric sources miss; otherwise show a confirmation button. |
+| `<provider>_api_key` | `string` | *(empty)* | API key for the selected provider. |
+| `<provider>_model` | `string` | varies | Model used by the selected provider; OpenRouter defaults to `~google/gemini-flash-latest`. |
+| `openai_endpoint` | `string` | `https://api.openai.com/v1` | OpenAI API endpoint; custom endpoints must support Responses web search for web lookup. |
+| `llm_max_tokens` | `string` | `32768` | Positive whole-number limit for AI output tokens per request. |
+| `llm_database_search_limit` | `string` | `4` | Maximum lyrics database queries per AI song identification attempt. |
+| `llm_web_search_limit` | `string` | `4` | Maximum provider searches and page fetches per AI lyrics lookup, where supported. |
+| `llm_album_page_limit` | `string` | `4` | Maximum provider searches and page fetches per AI tracklist lookup, where supported. |
 | `panel_size` | `select` | `medium` | Panel size preset: `mini` (360×120 chip panel), `compact` (440×440, 10 lyric lines), `medium` (520×520, 14 lines), `large` (640×640, 16 lines). The bar widget and the control-center tile open this preset. |
 | `offset_ms` | `int` | `0` | Shift lyric timing: positive shows lines earlier, negative later. |
 | `use_cache` | `bool` | `true` | Cache fetched lyrics in the plugin data directory for offline reuse. |
@@ -270,7 +178,8 @@ Upcoming work, roughly in priority order:
 
 - The service polls MPRIS via `busctl` (150 ms cadence) and publishes a snapshot to `noctalia.state`; the panel animates from those publishes.
 - Lyrics are fetched from public services with `curl` — LRCLIB API primary,
-  NetEase Cloud Music fallback on misses; nothing is uploaded. Cache and
+  NetEase Cloud Music fallback on misses. Cache and
   local lyrics live under the plugin data directory and `local_lyrics_dir`.
+- Optional AI lookups send track information to your selected provider and incur API charges.
 - Spawned processes (all argv-form, no shell): `busctl` (MPRIS poll), `curl` (LRCLIB + NetEase lyric fetches, IPv4, 8 s timeout), `sleep` (coreutils, 0.35 s refresh delay after transport commands).
 - Adapted from the Clavis shell media player text layer (karaoke render + LRCLIB provider), ported to pure Luau for Noctalia v5.
